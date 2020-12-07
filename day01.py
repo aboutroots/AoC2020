@@ -32,9 +32,8 @@ def get_3_numbers(rows):
 
 def main():
     rows = file_to_lines('inputs/day01.txt')
-    numbers = get_3_numbers(rows)
-    print(numbers[0] * numbers[1] * numbers[2])
-
+    numbers = get_2_numbers(rows)
+    print(numbers[0] * numbers[1] )
 
 
 
