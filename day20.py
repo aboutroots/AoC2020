@@ -187,17 +187,29 @@ def get_tile_down_of(last_tile, tiles):
     return next_tile
 
 
+# dir_map_rotation = {
+#     'e': ['w', 's', 'e', 'n'],
+#     's': ['n', 'w', 's', 'e'],
+#     'w': ['e', 'n', 'w', 's'],
+#     'n': ['s', 'e', 'n', 'w'],
+# }
 dir_map_rotation = {
-    'e': ['w', 's', 'e', 'n'],
-    's': ['n', 'w', 's', 'e'],
-    'w': ['e', 'n', 'w', 's'],
-    'n': ['s', 'e', 'n', 'w'],
+    'e': ['w', 'n', 'e', 's'],
+    's': ['n', 'e', 's', 'w'],
+    'w': ['e', 's', 'w', 'n'],
+    'n': ['s', 'w', 'n', 'e'],
 }
 dir_map_flip = {
     'e': 'y',
     's': 'x',
     'w': 'y',
     'n': 'x',
+}
+desired_side_map = {
+    'e': 'w',
+    's': 'n',
+    'w': 'e',
+    'n': 's',
 }
 
 def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
@@ -213,11 +225,21 @@ def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
         rotation_count = dir_map_rotation[direction].index(direction_in_next)
         for _ in range(rotation_count):
             next_tile.rotate90()
-        if rev:
+
+        desired_side_name = desired_side_map[direction]
+        other_side = next_tile.get_sides()[desired_side_name]
+        if ''.join(side) == ''.join(reversed(other_side)):
             if dir_map_flip[direction] == 'x':
                 next_tile.flip_x()
             else:
                 next_tile.flip_y()
+        # elif dir_map_flip_when[direction] == direction_in_next:
+        #     if dir_map_flip[direction] == 'y':
+        #         next_tile.flip_x()
+        #     else:
+        #         next_tile.flip_y()
+
+
         if direction == 'e':
             update_next_tiles(next_tile, tiles, edges_map, tiles_map, x + 1, y)
         if direction == 's':
@@ -234,42 +256,43 @@ def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
 
 
 
-def build_tiles_map(tiles, edges_map):
-    tiles_map = {}
-    update_next_tiles(tiles[0], tiles, edges_map, tiles_map, 0, 0)
-    return tiles_map
-
-    # map_len = int(math.sqrt(len(tiles)))
-    #
-    # tiles_map = []
-    # for y in range(map_len):
-    #     print(y)
-    #     if y == 0:
-    #         first_tile = corners[3]
-    #         north_side = first_tile.get_sides()['n']
-    #         if edges_map[''.join(north_side)] != 1:
-    #             first_tile.flip_y()
-    #         west_side = first_tile.get_sides()['w']
-    #         if edges_map[''.join(west_side)] != 1:
-    #             first_tile.flip_x()
-    #         row = [first_tile]
-    #     else:
-    #         last_tile = tiles_map[y - 1][0]
-    #         row = [get_tile_down_of(last_tile, tiles)]
-    #
-    #     tiles_map.append(row)
-    #     for x in range(map_len - 1):
-    #         print('x', x)
-    #         last_tile = tiles_map[-1][-1]
-    #         next_tile = get_tile_right_of(last_tile, tiles)
-    #         tiles_map[y].append(next_tile)
-    # return tiles_map
+# def build_tiles_map(tiles, edges_map):
+#     return tiles_map
+#
+#     # map_len = int(math.sqrt(len(tiles)))
+#     #
+#     # tiles_map = []
+#     # for y in range(map_len):
+#     #     print(y)
+#     #     if y == 0:
+#     #         first_tile = corners[3]
+#     #         north_side = first_tile.get_sides()['n']
+#     #         if edges_map[''.join(north_side)] != 1:
+#     #             first_tile.flip_y()
+#     #         west_side = first_tile.get_sides()['w']
+#     #         if edges_map[''.join(west_side)] != 1:
+#     #             first_tile.flip_x()
+#     #         row = [first_tile]
+#     #     else:
+#     #         last_tile = tiles_map[y - 1][0]
+#     #         row = [get_tile_down_of(last_tile, tiles)]
+#     #
+#     #     tiles_map.append(row)
+#     #     for x in range(map_len - 1):
+#     #         print('x', x)
+#     #         last_tile = tiles_map[-1][-1]
+#     #         next_tile = get_tile_right_of(last_tile, tiles)
+#     #         tiles_map[y].append(next_tile)
+#     # return tiles_map
 
 
 def second(tiles):
     edges = get_edges_count_map(tiles)
     corners = get_corner_tiles(tiles, edges)
-    tiles_map = build_tiles_map(tiles, edges)
+    tiles_map = {}
+    # build tiles map recursively
+    update_next_tiles(corners[0], tiles, edges, tiles_map, 0, 0)
+    print(tiles_map)
     # print(sorted(tiles_map.items()))
     min_x = min(tiles_map.keys(), key=lambda t: t[0])[0]
     max_x = max(tiles_map.keys(), key=lambda t: t[0])[0]
