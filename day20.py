@@ -99,7 +99,7 @@ map_next_tile_coords = {
 }
 
 monster_xy_list = [
-    (0, 19),
+    (0, 18),
     (1, 0),
     (1, 5),
     (1, 6),
@@ -152,14 +152,14 @@ def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
 
 def check_sea_monster(x, y, map):
     try:
-        found = all([map[y + b][x + a] == "#" for a, b in monster_xy_list])
+        found = all([map[y + a][x + b] == "#" for a, b in monster_xy_list])
     except IndexError:
         return False
     return found
 
 def draw_monster(x, y, graphic_map):
     for a, b in monster_xy_list:
-        graphic_map[y + b][x + a] = '00ff00'
+        graphic_map[y + a][x + b] = 'aaff00'
 
 def find_monsters(big_map):
     for flip_x in range(2):
@@ -195,27 +195,40 @@ def second(tiles):
     min_tiles_y = min(tiles_map.keys(), key=lambda t: t[1])[1]
     max_tiles_x = max(tiles_map.keys(), key=lambda t: t[0])[0]
     max_tiles_y = max(tiles_map.keys(), key=lambda t: t[1])[1]
-    
+
     if min_tiles_x < 0 or min_tiles_y < 0:
-        pass
+        updated_map = {}
+        add_to_x = -min_tiles_x
+        add_to_y = -min_tiles_y
+        for x,y in tiles_map.keys():
+            updated_map[(
+                x + add_to_x,
+                y + add_to_y
+            )] = tiles_map[(x,y)]
+        tiles_map = updated_map
+        max_tiles_x = max(tiles_map.keys(), key=lambda t: t[0])[0]
+        max_tiles_y = max(tiles_map.keys(), key=lambda t: t[1])[1]
 
 
 
 
-    max_tiles_x += 1
-    max_tiles_y += 1
+
+
+
+    len_tiles_x = max_tiles_x + 1
+    len_tiles_y = max_tiles_y + 1
     # build one big map
     len_tile_y = len(tiles[0].rows) -2
     len_tile_x = len(tiles[0].rows[0]) - 2
-    big_map = np.full((max_tiles_y * len_tile_y, max_tiles_x * len_tile_x), "X")
+    big_map = np.full((len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), "X")
 
-    for tile_y in range(0, max_tiles_y):
-        for tile_x in range(0, max_tiles_x):
+    for tile_y in range(0, len_tiles_y):
+        for tile_x in range(0, len_tiles_x):
             tile = tiles_map[(tile_x, tile_y)]
             # print(tile.id)
             for idx_y, row in enumerate(tile.rows[1: -1]):
                 for idx_x, value in enumerate(row[1: -1]):
-                    final_y = idx_y + (max_tiles_y - 1 - tile_y) * len_tile_y
+                    final_y = idx_y + (len_tiles_y - 1 - tile_y) * len_tile_y
                     final_x = idx_x + tile_x * len_tile_x
                     big_map[final_y][final_x] = value
                     # print(value, end='')
@@ -225,28 +238,32 @@ def second(tiles):
     monsters, correct_map = find_monsters(big_map)
     print(monsters)
 
-    # graphic_map = np.full((len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), 'xxxxxx')
-    # for y, row in enumerate(correct_map):
-    #     for x in range(len(row)):
-    #         if graphic_map[y][x] == 'xxxxxx':
-    #             has_monster_tail = check_sea_monster(x, y, correct_map)
-    #             if big_map[y][x] == '#':
-    #                 graphic_map[y][x] = '2697bd'
-    #             else:
-    #                 graphic_map[y][x] = '52bfe3'
-    #
-    #             if has_monster_tail:
-    #                 draw_monster(x, y, graphic_map)
-    # as_rgb = []
-    # for row in graphic_map:
-    #     simple_list = []
-    #     for value in row:
-    #         simple_list.append([int(value[i:i+2], 16) for i in (0, 2, 4)])
-    #     as_rgb.append(simple_list)
-    #
-    # img = np.array(as_rgb, dtype=np.uint8)
-    # fig = px.imshow(img)
-    # fig.show()
+    plot = True
+    if not plot:
+        return
+
+    graphic_map = np.full((len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), 'xxxxxx')
+    for y, row in enumerate(correct_map):
+        for x in range(len(row)):
+            if graphic_map[y][x] == 'xxxxxx':
+                has_monster_tail = check_sea_monster(x, y, correct_map)
+                if big_map[y][x] == '#':
+                    graphic_map[y][x] = '2697bd'
+                else:
+                    graphic_map[y][x] = '52bfe3'
+
+                if has_monster_tail:
+                    draw_monster(x, y, graphic_map)
+    as_rgb = []
+    for row in graphic_map:
+        simple_list = []
+        for value in row:
+            simple_list.append([int(value[i:i+2], 16) for i in (0, 2, 4)])
+        as_rgb.append(simple_list)
+
+    img = np.array(as_rgb, dtype=np.uint8)
+    fig = px.imshow(img)
+    fig.show()
 
 
 def main():
