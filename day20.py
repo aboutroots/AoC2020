@@ -5,8 +5,6 @@ import numpy as np
 import plotly.express as px
 import re
 
-from _plotly_utils.colors import hex_to_rgb
-
 
 class Tile:
     def __init__(self, id, rows):
@@ -98,7 +96,7 @@ map_next_tile_coords = {
     "n": (0, 1),
 }
 
-monster_xy_list = [
+monster_yx_list = [
     (0, 18),
     (1, 0),
     (1, 5),
@@ -116,24 +114,33 @@ monster_xy_list = [
     (2, 16),
 ]
 
+colors = {"dragon": "aaff00", "clear": "52bfe3", "rough": "2697bd"}
 
-def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
+
+def update_neighbour_tiles(tile, tiles, edges_map, tiles_map, x, y):
     sides = tile.get_sides()
     tiles_map[(x, y)] = tile
     for direction, side in sides.items():
         side_string = "".join(side)
+
+        # skip "loose" sides
         if edges_map[side_string] == 1:
             continue
+
+        # find neighbour tile for side
         next_tile = next(
             t for t in tiles if t.side_match(side) is not None and tile != t
         )
         if next_tile in tiles_map.values():
             continue
+
+        # rotate neighbour so the sides can match
         direction_in_next = next_tile.side_match(side)
         rotation_count = map_rotations_to_match[direction].index(direction_in_next)
         for _ in range(rotation_count):
             next_tile.rotate90()
 
+        # flip neighbour if needed
         desired_side_name = map_desired_side[direction]
         side_in_next = next_tile.get_sides()[desired_side_name]
         need_to_flip = side_string == "".join(reversed(side_in_next))
@@ -143,54 +150,46 @@ def update_next_tiles(tile, tiles, edges_map, tiles_map, x, y):
             else:
                 next_tile.flip_y()
 
+        # ok we are done, the neighbour is placed correctly. Now onto HIS neighbours...
         next_x_add, next_y_add = map_next_tile_coords[direction]
-        update_next_tiles(
+        update_neighbour_tiles(
             next_tile, tiles, edges_map, tiles_map, x + next_x_add, y + next_y_add
         )
     return tiles_map
 
 
-def check_sea_monster(x, y, map):
+def check_if_sea_monster_tail(x, y, big_map):
     try:
-        found = all([map[y + a][x + b] == "#" for a, b in monster_xy_list])
+        found = all([big_map[y + a][x + b] == "#" for a, b in monster_yx_list])
     except IndexError:
         return False
     return found
 
-def draw_monster(x, y, graphic_map):
-    for a, b in monster_xy_list:
-        graphic_map[y + a][x + b] = 'aaff00'
 
-def find_monsters(big_map):
-    for flip_x in range(2):
-        for flip_y in range(2):
-            for rotation in range(4):
-                monsters = 0
-                for y, row in enumerate(big_map):
-                    for x in range(len(row)):
-                        monsters += check_sea_monster(x, y, big_map)
-                        # print(x, end="")
-                    # print()
-                if monsters:
-                    return monsters, big_map
-                big_map = np.rot90(big_map)
+def plot(graphic_map):
+    # convert hex colors to rgb
+    as_rgb = []
+    for row in graphic_map:
+        simple_list = []
+        for value in row:
+            simple_list.append([int(value[i : i + 2], 16) for i in (0, 2, 4)])
+        as_rgb.append(simple_list)
 
-            # flip y
-            big_map = list(reversed(big_map))
-        # flip x
-        new_map = []
-        for r in big_map:
-            new_map.append(list(reversed(r)))
-        big_map = new_map
-    return 0, big_map
+    img = np.array(as_rgb, dtype=np.uint8)
+    fig = px.imshow(img)
+    # plot
+    fig.show()
+
 
 def second(tiles):
     edges = get_edges_count_map(tiles)
     corners = get_corner_tiles(tiles, edges)
     tiles_map = {}
     # build tiles map recursively
-    update_next_tiles(corners[0], tiles, edges, tiles_map, 0, 0)
-    # normalize tiles
+    update_neighbour_tiles(corners[0], tiles, edges, tiles_map, 0, 0)
+
+    # normalize tiles - the indexation can start from value below 0.
+    # Make them start from 0
     min_tiles_x = min(tiles_map.keys(), key=lambda t: t[0])[0]
     min_tiles_y = min(tiles_map.keys(), key=lambda t: t[1])[1]
     max_tiles_x = max(tiles_map.keys(), key=lambda t: t[0])[0]
@@ -200,70 +199,69 @@ def second(tiles):
         updated_map = {}
         add_to_x = -min_tiles_x
         add_to_y = -min_tiles_y
-        for x,y in tiles_map.keys():
-            updated_map[(
-                x + add_to_x,
-                y + add_to_y
-            )] = tiles_map[(x,y)]
+        for x, y in tiles_map.keys():
+            updated_map[(x + add_to_x, y + add_to_y)] = tiles_map[(x, y)]
         tiles_map = updated_map
         max_tiles_x = max(tiles_map.keys(), key=lambda t: t[0])[0]
         max_tiles_y = max(tiles_map.keys(), key=lambda t: t[1])[1]
 
-
-
-
-
-
-
+    # build one big map
     len_tiles_x = max_tiles_x + 1
     len_tiles_y = max_tiles_y + 1
-    # build one big map
-    len_tile_y = len(tiles[0].rows) -2
+    len_tile_y = len(tiles[0].rows) - 2  # remember to strip "borders"
     len_tile_x = len(tiles[0].rows[0]) - 2
     big_map = np.full((len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), "X")
 
     for tile_y in range(0, len_tiles_y):
         for tile_x in range(0, len_tiles_x):
             tile = tiles_map[(tile_x, tile_y)]
-            # print(tile.id)
-            for idx_y, row in enumerate(tile.rows[1: -1]):
-                for idx_x, value in enumerate(row[1: -1]):
+            for idx_y, row in enumerate(tile.rows[1:-1]):  # remember to strip "borders"
+                for idx_x, value in enumerate(row[1:-1]):
                     final_y = idx_y + (len_tiles_y - 1 - tile_y) * len_tile_y
                     final_x = idx_x + tile_x * len_tile_x
                     big_map[final_y][final_x] = value
-                    # print(value, end='')
-                # print()
 
+    # find correct map orientation (the one that has dragons visible)
+    correct_map = None
+    roughness = 0
+    for flip_y in range(2):
+        for rotation in range(4):
+            monsters = 0
 
-    monsters, correct_map = find_monsters(big_map)
-    print(monsters)
+            # find and draw dragons
+            placeholder = "xxxxxx"
+            graphic_map = np.full(
+                (len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), placeholder
+            )
+            for y, row in enumerate(big_map):
+                for x in range(len(row)):
+                    if graphic_map[y][x] == placeholder:
+                        has_monster_tail = check_if_sea_monster_tail(x, y, big_map)
+                        if big_map[y][x] == "#":
+                            graphic_map[y][x] = colors["rough"]
+                        else:
+                            graphic_map[y][x] = colors["clear"]
+                        if has_monster_tail:
+                            monsters += 1
+                            for a, b in monster_yx_list:
+                                graphic_map[y + a][x + b] = colors["dragon"]
+            if monsters:
+                # get rough water count
+                roughness = sum(
+                    1
+                    for row in graphic_map
+                    for value in row
+                    if value == colors["rough"]
+                )
+                correct_map = graphic_map
 
-    plot = True
-    if not plot:
-        return
+            # try again by rotating big map
+            big_map = np.rot90(big_map)
+        # try again by flipping the big map
+        big_map = list(reversed(big_map))
 
-    graphic_map = np.full((len_tiles_y * len_tile_y, len_tiles_x * len_tile_x), 'xxxxxx')
-    for y, row in enumerate(correct_map):
-        for x in range(len(row)):
-            if graphic_map[y][x] == 'xxxxxx':
-                has_monster_tail = check_sea_monster(x, y, correct_map)
-                if big_map[y][x] == '#':
-                    graphic_map[y][x] = '2697bd'
-                else:
-                    graphic_map[y][x] = '52bfe3'
-
-                if has_monster_tail:
-                    draw_monster(x, y, graphic_map)
-    as_rgb = []
-    for row in graphic_map:
-        simple_list = []
-        for value in row:
-            simple_list.append([int(value[i:i+2], 16) for i in (0, 2, 4)])
-        as_rgb.append(simple_list)
-
-    img = np.array(as_rgb, dtype=np.uint8)
-    fig = px.imshow(img)
-    fig.show()
+    print(roughness)
+    plot(correct_map)
 
 
 def main():
@@ -275,8 +273,8 @@ def main():
         num = int(re.search(r"\d+", header).group(0))
         tiles.append(Tile(id=num, rows=[list(line) for line in lines]))
 
-    # print(first(tiles))
-    print(second(tiles))
+    print(first(tiles))
+    second(tiles)
 
 
 if __name__ == "__main__":
