@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "aoc2020"
+version = "0.1.0"
+description = ""
+authors = ["aboutroots <popiel.mw@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+numpy = "^1.19.4"
+plotly = "^4.14.1"
+pandas = "^1.2.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
