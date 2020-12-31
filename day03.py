@@ -33,8 +33,6 @@ def second(rows):
     )
 
 
-
-
 def main():
     rows = file_to_lines("inputs/day03.txt")
     print(first(rows))
